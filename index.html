@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="ar">
+<head>
+  <meta charset="utf-8" />
+  <title>خريطة الحفر الباطن</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
+  <style>
+    html, body, #map {
+      height: 100%;
+      margin: 0;
+      padding: 0;
+      direction: rtl;
+      font-family: "Tahoma", sans-serif;
+    }
+    .legend {
+      background: white;
+      padding: 8px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      box-shadow: 0 0 5px rgba(0,0,0,0.3);
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      line-height: 1.6;
+    }
+    .legend span {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      margin-left: 6px;
+      border-radius: 50%;
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div class="legend">
+    <div><span style="background:#E1012D"></span> مرتفع</div>
+    <div><span style="background:#bc6e3f"></span> متوسط</div>
+    <div><span style="background:#248765"></span> منخفض جدًا</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+
+  <script>
+    // --- Initialize map centered on Hafar Al-Batin ---
+    const map = L.map("map").setView([28.4328, 45.9700], 11);
+
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 18,
+      attribution: "© OpenStreetMap contributors"
+    }).addTo(map);
+
+    const clusterGroup = L.markerClusterGroup();
+    map.addLayer(clusterGroup);
+
+    function getMarkerColor(count) {
+      if (count >= 10) return "#E1012D";     // High - Red
+      if (count >= 5) return "#bc6e3f";      // Medium - Yellow/Brown
+      return "#248765";                      // Low - Green
+    }
+
+    // --- Listen for messages from parent ---
+    window.addEventListener("message", (event) => {
+      const data = event.data;
+      if (!data || !data.incidentData) return;
+
+      const arr = data.incidentData;
+      clusterGroup.clearLayers();
+
+      let bounds = [];
+
+      arr.forEach((d) => {
+        const { state, lat, long, count } = d;
+        if (lat == null || long == null) return;
+
+        const color = getMarkerColor(count);
+
+        const tooltip = `
+          <strong>الاسم:</strong> ${state}<br/>
+          <strong>عدد الحالات:</strong> ${count}
+        `;
+
+        const marker = L.circleMarker([lat, long], {
+          radius: 8,
+          color: color,
+          fillColor: color,
+          fillOpacity: 0.7,
+          weight: 1
+        });
+
+        marker.bindTooltip(tooltip, {
+          direction: "top",
+          permanent: false,
+          opacity: 0.9
+        });
+
+        marker.on("click", () => {
+          const payload = {
+            type: "mapClick",
+            state: state,
+            lat: lat,
+            long: long,
+            count: count,
+            label: state
+          };
+          window.parent.postMessage(payload, "*");
+        });
+
+        clusterGroup.addLayer(marker);
+        bounds.push([lat, long]);
+      });
+
+      if (bounds.length > 0) {
+        const b = L.latLngBounds(bounds);
+        map.fitBounds(b, { padding: [40, 40] });
+      }
+    });
+
+    console.log("خريطة الحفر الباطن جاهزة وتنتظر البيانات من النظام الرئيسي...");
+  </script>
+</body>
+</html>
