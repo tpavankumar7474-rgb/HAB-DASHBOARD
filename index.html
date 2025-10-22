@@ -1,8 +1,8 @@
 <!DOCTYPE html>
-<html lang="ar">
+<html lang="en">
 <head>
   <meta charset="utf-8" />
-  <title>خريطة البلاغات - حفر الباطن</title>
+  <title>Incident Map</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
@@ -12,10 +12,9 @@
       height: 100%;
       margin: 0;
       padding: 0;
-      direction: rtl;
-      font-family: 'TheSansArabic', sans-serif;
       background: #f8f9fa;
     }
+
     .legend {
       position: absolute;
       bottom: 15px;
@@ -27,44 +26,58 @@
       line-height: 1.6;
       box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
+
     .legend span {
       display: inline-block;
       width: 14px;
       height: 14px;
-      margin-left: 5px;
+      margin-right: 5px;
       border-radius: 50%;
     }
-    /* 🔥 remove hand/pointer cursor completely */
-    .leaflet-interactive {
+
+    /* 🔥 Completely remove hand/pointer cursor */
+    .leaflet-container,
+    .leaflet-interactive,
+    .leaflet-marker-icon,
+    .leaflet-marker-pane,
+    .leaflet-overlay-pane,
+    .leaflet-clickable {
       cursor: default !important;
     }
+
     .custom-cluster-icon {
-      font-family: 'TheSansArabic', sans-serif;
+      cursor: default !important;
+      font-weight: bold;
+      color: #fff;
+      text-align: center;
+      line-height: 40px;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
 
-  <!-- خريطة التوضيح -->
+  <!-- Legend -->
   <div class="legend">
-    <div><span style="background:#E1012D;"></span> عالي (أحمر)</div>
-    <div><span style="background:#FFCC01;"></span> متوسط (أصفر)</div>
-    <div><span style="background:#248765;"></span> منخفض جدًا (أخضر)</div>
+    <div><span style="background:#E1012D;"></span> High</div>
+    <div><span style="background:#FFCC01;"></span> Medium</div>
+    <div><span style="background:#248765;"></span> Low</div>
   </div>
 
-  <!-- مكتبات Leaflet -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
   <script>
-    const map = L.map("map").setView([28.4328, 45.9700], 12);
+    // Initialize map
+    const map = L.map("map", { zoomControl: true }).setView([28.4328, 45.97], 12);
 
+    // Add base map
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
-      attribution: "© OpenStreetMap contributors"
+      attribution: "© OpenStreetMap"
     }).addTo(map);
 
+    // Cluster setup
     const clusterGroup = L.markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
@@ -78,17 +91,12 @@
         return L.divIcon({
           html: `<div style="
             background:${color};
-            color:white;
-            width:40px;
-            height:40px;
+            width:40px;height:40px;
             border-radius:50%;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            font-weight:bold;
-            font-size:13px;
+            display:flex;align-items:center;justify-content:center;
             border:2px solid white;
-            box-shadow:0 0 5px rgba(0,0,0,0.3);
+            font-size:13px;
+            font-weight:bold;
           ">${count}</div>`,
           className: 'custom-cluster-icon',
           iconSize: [40, 40]
@@ -98,22 +106,29 @@
 
     map.addLayer(clusterGroup);
 
-    // استقبال البيانات
+    let openTooltip = null;
+
+    // 📨 Listen for dynamic data from parent/dashboard
     window.addEventListener("message", (event) => {
       const data = event.data;
       if (!data || !data.incidentData) {
-        console.warn("❌ لا توجد بيانات بلاغات في الرسالة");
+        console.warn("⚠️ No incidentData received in message");
         return;
       }
 
       const arr = data.incidentData;
+      renderMarkers(arr);
+    });
+
+    // 🔧 Render dynamic markers
+    function renderMarkers(arr) {
       clusterGroup.clearLayers();
 
       arr.forEach((d) => {
         const { state, lat, long, count } = d;
         if (!lat || !long || !count) return;
 
-        let color = "#248765"; // منخفض
+        let color = "#248765";
         if (count > 50 && count <= 200) color = "#FFCC01";
         else if (count > 200) color = "#E1012D";
 
@@ -127,26 +142,26 @@
         });
 
         const tooltipHTML = `
-          <div style="text-align:right; direction:rtl;">
-            <strong>المنطقة:</strong> ${decodeURIComponent(state)}<br/>
-            <strong>عدد البلاغات:</strong> ${count}
+          <div style="text-align:left;">
+            <strong>Region:</strong> ${state}<br/>
+            <strong>Count:</strong> ${count}
           </div>
         `;
 
-        // ✅ show tooltip only when marker clicked (no hand symbol)
-        marker.on("click", (e) => {
-          map.closeTooltip();
+        marker.on("click", () => {
+          if (openTooltip) openTooltip.closeTooltip();
           marker.bindTooltip(tooltipHTML, {
             permanent: false,
             direction: "top",
-            offset: [0, -5],
+            offset: [0, -8],
             opacity: 0.95
           }).openTooltip();
+          openTooltip = marker;
         });
 
         clusterGroup.addLayer(marker);
       });
-    });
+    }
   </script>
 </body>
 </html>
