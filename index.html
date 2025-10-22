@@ -34,6 +34,10 @@
       margin-left: 5px;
       border-radius: 50%;
     }
+    /* 🔥 remove hand/pointer cursor completely */
+    .leaflet-interactive {
+      cursor: default !important;
+    }
     .custom-cluster-icon {
       font-family: 'TheSansArabic', sans-serif;
     }
@@ -54,16 +58,13 @@
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
   <script>
-    // إعداد الخريطة على موقع حفر الباطن
     const map = L.map("map").setView([28.4328, 45.9700], 12);
 
-    // طبقة الخلفية
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
       attribution: "© OpenStreetMap contributors"
     }).addTo(map);
 
-    // إعداد التجميع (Clustering)
     const clusterGroup = L.markerClusterGroup({
       showCoverageOnHover: false,
       spiderfyOnMaxZoom: true,
@@ -97,7 +98,7 @@
 
     map.addLayer(clusterGroup);
 
-    // استقبال البيانات من لوحة التحكم أو الصفحة الأم
+    // استقبال البيانات
     window.addEventListener("message", (event) => {
       const data = event.data;
       if (!data || !data.incidentData) {
@@ -112,44 +113,35 @@
         const { state, lat, long, count } = d;
         if (!lat || !long || !count) return;
 
-        // تحديد اللون حسب العدد
         let color = "#248765"; // منخفض
-        if (count > 50 && count <= 200) color = "#FFCC01"; // متوسط
-        else if (count > 200) color = "#E1012D"; // عالي
+        if (count > 50 && count <= 200) color = "#FFCC01";
+        else if (count > 200) color = "#E1012D";
 
-        // إنشاء دائرة البلاغ
         const marker = L.circleMarker([lat, long], {
           radius: 6 + Math.min(count / 10, 15),
           color: color,
           fillColor: color,
           fillOpacity: 0.85,
-          weight: 0.8
+          weight: 0.8,
+          interactive: true
         });
 
-        // محتوى التولتيب
-        const tooltipContent = `
+        const tooltipHTML = `
           <div style="text-align:right; direction:rtl;">
             <strong>المنطقة:</strong> ${decodeURIComponent(state)}<br/>
             <strong>عدد البلاغات:</strong> ${count}
           </div>
         `;
 
-        // عند النقر على الماركر يظهر التولتيب مباشرة
+        // ✅ show tooltip only when marker clicked (no hand symbol)
         marker.on("click", (e) => {
-          // إغلاق أي تولتيب مفتوح مسبقاً
           map.closeTooltip();
-
-          // فتح التولتيب الجديد في نفس لحظة الضغط
-          marker.bindTooltip(tooltipContent, {
+          marker.bindTooltip(tooltipHTML, {
             permanent: false,
             direction: "top",
             offset: [0, -5],
             opacity: 0.95
           }).openTooltip();
-
-          // إرسال البيانات إلى الصفحة الأم (اختياري)
-          const payload = { type: "mapClick", state, lat, long, count };
-          window.parent.postMessage(payload, "*");
         });
 
         clusterGroup.addLayer(marker);
