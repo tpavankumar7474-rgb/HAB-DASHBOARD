@@ -14,7 +14,6 @@
       padding: 0;
       direction: rtl;
       font-family: 'TheSansArabic', sans-serif;
-      background: #f8f9fa;
     }
     .legend {
       position: absolute;
@@ -22,10 +21,9 @@
       left: 15px;
       background: rgba(255, 255, 255, 0.9);
       padding: 8px 14px;
-      border-radius: 8px;
+      border-radius: 6px;
       font-size: 14px;
       line-height: 1.6;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
     }
     .legend span {
       display: inline-block;
@@ -34,70 +32,38 @@
       margin-left: 5px;
       border-radius: 50%;
     }
-    .custom-cluster-icon {
-      font-family: 'TheSansArabic', sans-serif;
+    /* Remove hand cursor from markers */
+    .leaflet-interactive {
+      cursor: default !important;
     }
   </style>
 </head>
 <body>
   <div id="map"></div>
-
-  <!-- خريطة التوضيح -->
   <div class="legend">
     <div><span style="background:#E1012D;"></span> عالي (أحمر)</div>
     <div><span style="background:#FFCC01;"></span> متوسط (أصفر)</div>
     <div><span style="background:#248765;"></span> منخفض جدًا (أخضر)</div>
   </div>
 
-  <!-- مكتبات Leaflet -->
   <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
   <script>
-    // إعداد الخريطة على موقع حفر الباطن
+    // Initialize map
     const map = L.map("map").setView([28.4328, 45.9700], 12);
 
-    // طبقة الخلفية
+    // Base layer
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
       attribution: "© OpenStreetMap contributors"
     }).addTo(map);
 
-    // إعداد التجميع (Clustering)
-    const clusterGroup = L.markerClusterGroup({
-      showCoverageOnHover: false,
-      spiderfyOnMaxZoom: true,
-      disableClusteringAtZoom: 15,
-      iconCreateFunction: (cluster) => {
-        const count = cluster.getChildCount();
-        let color = '#248765';
-        if (count > 50 && count <= 200) color = '#FFCC01';
-        else if (count > 200) color = '#E1012D';
-
-        return L.divIcon({
-          html: `<div style="
-            background:${color};
-            color:white;
-            width:40px;
-            height:40px;
-            border-radius:50%;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            font-weight:bold;
-            font-size:13px;
-            border:2px solid white;
-            box-shadow:0 0 5px rgba(0,0,0,0.3);
-          ">${count}</div>`,
-          className: 'custom-cluster-icon',
-          iconSize: [40, 40]
-        });
-      }
-    });
-
+    // Marker clustering
+    const clusterGroup = L.markerClusterGroup();
     map.addLayer(clusterGroup);
 
-    // استقبال البيانات من لوحة التحكم أو الصفحة الأم
+    // Listen for message data from parent frame
     window.addEventListener("message", (event) => {
       const data = event.data;
       if (!data || !data.incidentData) {
@@ -112,34 +78,39 @@
         const { state, lat, long, count } = d;
         if (!lat || !long || !count) return;
 
-        // تحديد اللون حسب العدد
-        let color = "#248765"; // منخفض
-        if (count > 50 && count <= 200) color = "#FFCC01"; // متوسط
-        else if (count > 200) color = "#E1012D"; // عالي
+        // Choose color based on count
+        let color = "#248765"; // Low
+        if (count > 50 && count <= 200) color = "#FFCC01"; // Medium
+        else if (count > 200) color = "#E1012D"; // High
 
-        // إنشاء دائرة البلاغ
+        // Create marker
         const marker = L.circleMarker([lat, long], {
           radius: 6 + Math.min(count / 10, 15),
           color: color,
           fillColor: color,
-          fillOpacity: 0.85,
+          fillOpacity: 0.7,
           weight: 0.8
         });
 
-        // ✅ تفعيل التولتيب (Tooltip)
-        const tooltip = `
-          <div style="text-align:right; direction:rtl;">
-            <strong>المنطقة:</strong> ${decodeURIComponent(state)}<br/>
-            <strong>عدد البلاغات:</strong> ${count}
-          </div>
+        // Tooltip on hover (immediate)
+        const tooltipContent = `
+          <strong>المنطقة:</strong> ${decodeURIComponent(state)}<br/>
+          <strong>عدد البلاغات:</strong> ${count}
         `;
-        marker.bindTooltip(tooltip, {
+        marker.bindTooltip(tooltipContent, {
           direction: "top",
-          offset: [0, -4],
-          opacity: 0.95,
-          sticky: true
+          sticky: true,
+          opacity: 0.9
         });
 
+        // No hand symbol
+        marker.on("add", () => {
+          if (marker.getElement()) {
+            marker.getElement().style.cursor = "default";
+          }
+        });
+
+        // Optional: Click to send event to parent
         marker.on("click", () => {
           const payload = { type: "mapClick", state, lat, long, count };
           window.parent.postMessage(payload, "*");
