@@ -67,7 +67,6 @@
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
   <script>
-    // Create the map centered on Saudi Arabia
     const map = L.map("map").setView([24.7136, 46.6753], 6);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
@@ -77,7 +76,7 @@
 
     const clusterGroup = L.markerClusterGroup({
       showCoverageOnHover: false,
-      disableClusteringAtZoom: 14, // Disable clustering at zoom 14 or more (shows individual points)
+      disableClusteringAtZoom: 14,
       iconCreateFunction: (cluster) => {
         const count = cluster.getChildCount();
         let color = '#248765';
@@ -100,16 +99,13 @@
     });
     map.addLayer(clusterGroup);
 
-    // Store current markers to clear and support dynamic filtering
     let currentMarkers = [];
 
-    // Helper: Clear existing markers
     function clearMarkers() {
       currentMarkers.forEach(marker => clusterGroup.removeLayer(marker));
       currentMarkers = [];
     }
 
-    // Render markers, clustered if zoom < 14, individual if zoom >= 14
     function renderMarkers(data) {
       clearMarkers();
       data.forEach(d => {
@@ -128,7 +124,6 @@
           interactive: true
         });
 
-        // Show only region and count, no lat/long
         const tooltipHTML = `
           <div style="text-align:right; font-size:14px;">
             <strong>المنطقة:</strong> ${d.state}<br/>
@@ -147,45 +142,6 @@
       });
     }
 
-    // Example dynamic data aggregated statewise
-    // For real use, this data should come from your query dynamically
-    const exampleStateData = [
-      { state: "الرياض", lat: 24.7136, long: 46.6753, count: 120 },
-      { state: "جدة", lat: 21.4858, long: 39.1925, count: 160 },
-      { state: "الدمام", lat: 26.3927, long: 49.9777, count: 90 },
-      { state: "حفر الباطن", lat: 28.4328, long: 45.9702, count: 50 }
-    ];
-
-    // Example detail points when zoomed in on a specific state
-    const exampleDetailData = [
-      { state: "حي الملك عبدالله - الرياض", lat: 24.7, long: 46.68, count: 20 },
-      { state: "حي العليا - الرياض", lat: 24.71, long: 46.67, count: 50 },
-      { state: "حي الشفا - الرياض", lat: 24.72, long: 46.64, count: 50 },
-
-      { state: "شرق جدة", lat: 21.5, long: 39.2, count: 90 },
-      { state: "وسط جدة", lat: 21.49, long: 39.18, count: 70 },
-      { state: "غرب جدة", lat: 21.48, long: 39.19, count: 0 },
-
-      { state: "حي المسورة - الدمام", lat: 26.39, long: 49.98, count: 60 },
-      { state: "حي العزيزية - الدمام", lat: 26.38, long: 49.96, count: 30 },
-
-      { state: "حي الحازمي - حفر الباطن", lat: 28.43, long: 45.96, count: 50 }
-    ];
-
-    // Initially show state-level clustering data
-    renderMarkers(exampleStateData);
-
-    // Listen for map zoom changes to switch between clustered summary and points
-    map.on('zoomend', () => {
-      const zoom = map.getZoom();
-      if (zoom >= 14) {
-        renderMarkers(exampleDetailData); // Show individual points
-      } else {
-        renderMarkers(exampleStateData); // Show statewise clusters
-      }
-    });
-
-    // Optionally listen for message events if you load data dynamically
     window.addEventListener("message", (event) => {
       const data = event.data;
       if (data && Array.isArray(data.incidentData)) {
