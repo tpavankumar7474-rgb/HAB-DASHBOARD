@@ -21,20 +21,21 @@
       position: absolute;
       bottom: 15px;
       right: 15px;
-      background: rgba(255, 255, 255, 0.9);
-      padding: 8px 14px;
-      border-radius: 8px;
+      background: rgba(255, 255, 255, 0.95);
+      padding: 10px 16px;
+      border-radius: 10px;
       font-size: 14px;
-      line-height: 1.6;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      line-height: 1.8;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
       text-align: right;
+      z-index: 9999;
     }
 
     .legend span {
       display: inline-block;
-      width: 14px;
-      height: 14px;
-      margin-left: 5px;
+      width: 16px;
+      height: 16px;
+      margin-left: 8px;
       border-radius: 50%;
     }
 
@@ -59,7 +60,7 @@
 <body>
   <div id="map"></div>
 
-  <!-- ✅ Arabic Legend -->
+  <!-- ✅ Arabic Legend (Always Visible) -->
   <div class="legend">
     <div><span style="background:#E1012D;"></span> عالي</div>
     <div><span style="background:#FFCC01;"></span> متوسط</div>
@@ -70,7 +71,7 @@
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
   <script>
-    const map = L.map("map", { zoomControl: true }).setView([28.4328, 45.97], 12);
+    const map = L.map("map", { zoomControl: true }).setView([24.7136, 46.6753], 6); // Center on Riyadh by default
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
@@ -105,9 +106,7 @@
 
     map.addLayer(clusterGroup);
 
-    let openTooltip = null;
-
-    // ✅ Listening for data from parent
+    // 📨 Listen for dynamic data from parent/dashboard
     window.addEventListener("message", (event) => {
       const data = event.data;
       if (!data || !data.incidentData) {
@@ -115,17 +114,17 @@
         return;
       }
 
-      const arr = data.incidentData;
-      renderMarkers(arr);
+      renderMarkers(data.incidentData);
     });
 
-    // ✅ Marker rendering with Arabic tooltips
-    function renderMarkers(arr) {
+    // ✅ Render markers with Arabic names and tooltip fixed
+    function renderMarkers(data) {
       clusterGroup.clearLayers();
 
-      arr.forEach((d) => {
-        const { state, lat, long, count } = d;
-        if (!lat || !long || !count) return;
+      data.forEach((item) => {
+        const { state, lat, long, count } = item;
+
+        if (!lat || !long || !count || !state) return;
 
         let color = "#248765";
         if (count > 50 && count <= 200) color = "#FFCC01";
@@ -136,32 +135,43 @@
           color: color,
           fillColor: color,
           fillOpacity: 0.85,
-          weight: 0.8,
+          weight: 1,
           interactive: true
         });
 
-        // ✅ Arabic Tooltip
+        // ✅ Arabic Tooltip content
         const tooltipHTML = `
-          <div style="text-align:right;">
+          <div style="text-align:right; font-size: 13px;">
             <strong>المنطقة:</strong> ${state}<br/>
             <strong>العدد:</strong> ${count}
           </div>
         `;
 
+        // ✅ Always bind + show tooltip immediately
+        marker.bindTooltip(tooltipHTML, {
+          direction: "top",
+          offset: [0, -10],
+          permanent: false,
+          opacity: 0.95
+        });
+
         marker.on("click", () => {
-          if (openTooltip) openTooltip.closeTooltip();
-          marker.bindTooltip(tooltipHTML, {
-            permanent: false,
-            direction: "top",
-            offset: [0, -8],
-            opacity: 0.95
-          }).openTooltip();
-          openTooltip = marker;
+          marker.openTooltip(); // show tooltip on click
         });
 
         clusterGroup.addLayer(marker);
       });
     }
+
+    // ✅ For testing manually if needed
+    // window.postMessage({
+    //   incidentData: [
+    //     { state: "الرياض", lat: 24.7136, long: 46.6753, count: 120 },
+    //     { state: "جدة", lat: 21.4858, long: 39.1925, count: 65 },
+    //     { state: "الدمام", lat: 26.4207, long: 50.0888, count: 200 }
+    //   ]
+    // }, "*");
+
   </script>
 </body>
 </html>
