@@ -2,19 +2,16 @@
 <html lang="ar" dir="rtl">
 <head>
   <meta charset="utf-8" />
-  <title>خريطة الحوادث</title>
+  <title>خريطة الحوادث بالدَرَجَات</title>
   <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-  <!-- Leaflet CSS -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.css" />
   <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster/dist/MarkerCluster.Default.css" />
 
   <style>
     html, body, #map {
-      height: 100%;
-      margin: 0;
-      padding: 0;
+      height: 100%; margin: 0; padding: 0;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       direction: rtl;
     }
@@ -22,7 +19,7 @@
       position: absolute;
       bottom: 15px;
       right: 15px;
-      background: rgba(255, 255, 255, 0.95);
+      background: rgba(255,255,255,0.95);
       padding: 10px 16px;
       border-radius: 10px;
       font-size: 15px;
@@ -35,12 +32,9 @@
       display: flex; align-items: center; margin-bottom: 2px;
     }
     .legend span {
+      width: 18px; height: 18px; margin-left: 10px;
+      border-radius: 50%; border: 2px solid #ddd;
       display: inline-block;
-      width: 18px;
-      height: 18px;
-      margin-left: 10px;
-      border-radius: 50%;
-      border: 2px solid #ddd;
     }
     .leaflet-container {
       cursor: default !important;
@@ -52,104 +46,215 @@
       text-align: center;
       line-height: 40px;
     }
+    #resetBtn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      z-index: 10000;
+      background: #057;
+      color: white;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      display: none;
+    }
   </style>
 </head>
 <body>
-  <div id="map"></div>
+<div id="map"></div>
+<div id="resetBtn" title="العودة إلى المستوى الأعلى">العودة إلى الأعلى</div>
+<div class="legend">
+  <div class="legend-row"><span style="background:#E1012D;"></span> عالي (مرتفع)</div>
+  <div class="legend-row"><span style="background:#FFCC01;"></span> متوسط</div>
+  <div class="legend-row"><span style="background:#248765;"></span> منخفض</div>
+</div>
 
-  <div class="legend">
-    <div class="legend-row"><span style="background:#E1012D;"></span> عالي (مرتفع)</div>
-    <div class="legend-row"><span style="background:#FFCC01;"></span> متوسط</div>
-    <div class="legend-row"><span style="background:#248765;"></span> منخفض</div>
-  </div>
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
-  <script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
-  <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
+<script>
+  const map = L.map('map').setView([28.4328, 45.9702], 10);
 
-  <script>
-    const map = L.map("map").setView([24.7136, 46.6753], 6);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 18,
+    attribution: '© OpenStreetMap contributors'
+  }).addTo(map);
 
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 18,
-      attribution: "© OpenStreetMap contributors"
-    }).addTo(map);
+  const resetBtn = document.getElementById('resetBtn');
 
-    const clusterGroup = L.markerClusterGroup({
-      showCoverageOnHover: false,
-      disableClusteringAtZoom: 14,
-      iconCreateFunction: (cluster) => {
-        const count = cluster.getChildCount();
-        let color = '#248765';
-        if (count > 50 && count <= 200) color = '#FFCC01';
-        else if (count > 200) color = '#E1012D';
-        return L.divIcon({
-          html: `<div style="
-            background:${color};
-            width:40px;height:40px;
-            border-radius:50%;
-            display:flex;align-items:center;justify-content:center;
-            border:2px solid white;
-            font-size:13px;
-            font-weight:bold;
-          ">${count}</div>`,
-          className: 'custom-cluster-icon',
-          iconSize: [40, 40]
-        });
-      }
-    });
-    map.addLayer(clusterGroup);
-
-    let currentMarkers = [];
-
-    function clearMarkers() {
-      currentMarkers.forEach(marker => clusterGroup.removeLayer(marker));
-      currentMarkers = [];
-    }
-
-    function renderMarkers(data) {
-      clearMarkers();
-      data.forEach(d => {
-        if (!d.lat || !d.long || !d.count || !d.state) return;
-
-        let color = '#248765';
-        if (d.count > 50 && d.count <= 200) color = '#FFCC01';
-        else if (d.count > 200) color = '#E1012D';
-
-        const marker = L.circleMarker([d.lat, d.long], {
-          radius: 6 + Math.min(d.count / 10, 15),
-          color: color,
-          fillColor: color,
-          fillOpacity: 0.85,
-          weight: 1,
-          interactive: true
-        });
-
-        const tooltipHTML = `
-          <div style="text-align:right; font-size:14px;">
-            <strong>المنطقة:</strong> ${d.state}<br/>
-            <strong>العدد:</strong> ${d.count}
-          </div>
-        `;
-        marker.bindTooltip(tooltipHTML, {
-          direction: 'top',
-          offset: [0, -8],
-          sticky: true,
-          opacity: 0.95
-        });
-
-        clusterGroup.addLayer(marker);
-        currentMarkers.push(marker);
+  const clusterGroup = L.markerClusterGroup({
+    showCoverageOnHover: false,
+    disableClusteringAtZoom: 17,
+    maxClusterRadius: 50,
+    chunkedLoading: true,
+    spiderfyOnMaxZoom: false,
+    iconCreateFunction: (cluster) => {
+      const count = cluster.getChildCount();
+      let color = '#248765';
+      if (count > 50 && count <= 200) color = '#FFCC01';
+      else if (count > 200) color = '#E1012D';
+      return L.divIcon({
+        html: `<div style="
+          background:${color};
+          width:40px; height:40px;
+          border-radius:50%;
+          display:flex; align-items:center; justify-content:center;
+          border:2px solid white;
+          font-size:13px;
+          font-weight:bold;
+        ">${count}</div>`,
+        className: 'custom-cluster-icon',
+        iconSize: [40, 40]
       });
     }
+  });
 
-    window.addEventListener("message", (event) => {
-      const data = event.data;
-      if (data && Array.isArray(data.incidentData)) {
-        renderMarkers(data.incidentData);
-      } else {
-        console.warn("⚠️ لم يتم استقبال بيانات الحوادث بشكل صحيح");
-      }
+  map.addLayer(clusterGroup);
+
+  let currentMarkers = [];
+  let currentLevel = 'parent'; // parent > state > incident
+  let filteredParent = null;
+  let filteredState = null;
+  let incidentData = [];
+
+  function clearMarkers() {
+    currentMarkers.forEach(m => clusterGroup.removeLayer(m));
+    currentMarkers = [];
+  }
+
+  // Group data by key and sum counts, keep average lat/long for cluster marker position
+  function groupBy(data, key) {
+    const grouped = {};
+    data.forEach(item => {
+      const groupKey = item[key];
+      if (!grouped[groupKey]) grouped[groupKey] = { count: 0, latSum: 0, longSum: 0, items: [] };
+      grouped[groupKey].count += item.counta;
+      grouped[groupKey].latSum += item.lat;
+      grouped[groupKey].longSum += item.longitude;
+      grouped[groupKey].items.push(item);
     });
-  </script>
+    return Object.entries(grouped).map(([k,v]) => ({
+      name: k,
+      count: v.count,
+      lat: v.latSum / v.items.length,
+      long: v.longSum / v.items.length,
+      items: v.items
+    }));
+  }
+
+  function render(level, parentname=null, statename=null) {
+    clearMarkers();
+
+    // Determine data to show based on drill-down level
+    let dataToShow = [];
+    if (level === 'parent') {
+      // group by ParentLocationName
+      dataToShow = groupBy(incidentData, 'ParentLocationName');
+      currentLevel = 'parent';
+      filteredParent = null;
+      filteredState = null;
+      resetBtn.style.display = 'none';
+      map.setView([28.4328, 45.9702], 10);
+    } else if (level === 'state' && parentname) {
+      // filter by ParentLocationName then group by state
+      const filtered = incidentData.filter(d => d.ParentLocationName === parentname);
+      dataToShow = groupBy(filtered, 'state');
+      currentLevel = 'state';
+      filteredParent = parentname;
+      filteredState = null;
+      resetBtn.style.display = 'block';
+      const lat = dataToShow.length ? dataToShow[0].lat : 28.4328;
+      const long = dataToShow.length ? dataToShow[0].long : 45.9702;
+      map.setView([lat, long], 11);
+    } else if (level === 'incident' && statename) {
+      // filter by state, show all incidents individually
+      dataToShow = incidentData.filter(d => d.state === statename && d.ParentLocationName === filteredParent);
+      currentLevel = 'incident';
+      filteredState = statename;
+      resetBtn.style.display = 'block';
+      if (dataToShow.length) {
+        map.setView([dataToShow[0].lat, dataToShow[0].longitude], 13);
+      }
+    } else {
+      // fallback to parent level
+      render('parent');
+      return;
+    }
+
+    dataToShow.forEach(d => {
+      let color = '#248765'; // low
+      if (d.count > 50 && d.count <= 200) color = '#FFCC01';
+      else if (d.count > 200) color = '#E1012D';
+
+      const marker = L.circleMarker([d.lat, d.long || d.longitude], {
+        radius: 6 + Math.min(d.count / 10, 15),
+        color,
+        fillColor: color,
+        fillOpacity: 0.85,
+        weight: 1,
+        interactive: true
+      });
+
+      const tooltipContent = (level === 'incident') ?
+        `<div style="text-align:right; font-size:14px;">
+          <strong>المنطقة:</strong> ${d.state}<br/>
+          <strong>الموقع الأب:</strong> ${d.ParentLocationName}<br/>
+          <strong>العدد:</strong> ${d.counta}
+        </div>` :
+        `<div style="text-align:right; font-size:14px;">
+          <strong>الاسم:</strong> ${d.name || d.ParentLocationName || d.state}<br/>
+          <strong>العدد:</strong> ${d.count}
+        </div>`;
+
+      marker.bindTooltip(tooltipContent, {
+        direction: 'top',
+        offset: [0, -8],
+        sticky: true,
+        opacity: 0.95,
+      });
+
+      marker.on('click', () => {
+        if (level === 'parent') {
+          render('state', d.name);
+        } else if (level === 'state') {
+          render('incident', d.name);
+        } else if (level === 'incident') {
+          render('parent');
+        }
+      });
+
+      clusterGroup.addLayer(marker);
+      currentMarkers.push(marker);
+    });
+
+    if (currentMarkers.length) {
+      const group = new L.featureGroup(currentMarkers);
+      map.fitBounds(group.getBounds().pad(0.2), { animate: true });
+    }
+  }
+
+  resetBtn.addEventListener('click', () => {
+    render('parent');
+  });
+
+  window.addEventListener('message', event => {
+    const data = event.data;
+    if (data && Array.isArray(data.incidentData)) {
+      incidentData = data.incidentData.map(item => ({
+        ParentLocationName: item.ParentLocationName,
+        state: item.state,
+        lat: parseFloat(item.lat),
+        long: parseFloat(item.longitude),
+        longitude: parseFloat(item.longitude), // maintain both lat-long keys for safety
+        counta: Number(item.counta)
+      }));
+      render('parent');
+    } else {
+      console.warn('⚠️ لم يتم استقبال بيانات الحوادث بشكل صحيح');
+    }
+  });
+
+</script>
 </body>
 </html>
