@@ -42,7 +42,7 @@
       font-weight: bold;
       color: #fff;
       text-align: center;
-      line-height: 40px;
+      line-height: 32px;
     }
     #resetBtn {
       position: absolute;
@@ -72,7 +72,8 @@
 <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
 <script>
-  const map = L.map('map').setView([28.4328, 45.9702], 10);
+  // Start with a closer zoom
+  const map = L.map('map').setView([28.4328, 45.9702], 13);
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 18,
@@ -80,40 +81,18 @@
   }).addTo(map);
 
   const resetBtn = document.getElementById('resetBtn');
-  const clusterGroup = L.markerClusterGroup({
-    showCoverageOnHover: false,
-    disableClusteringAtZoom: 17,
-    maxClusterRadius: 50,
-    chunkedLoading: true,
-    spiderfyOnMaxZoom: false,
-    iconCreateFunction: (cluster) => {
-      const count = cluster.getChildCount();
-      let color = '#248765';
-      if (count > 50 && count <= 200) color = '#FFCC01';
-      else if (count > 200) color = '#E1012D';
-      return L.divIcon({
-        html: `<div style="
-          background:${color};
-          width:40px; height:40px;
-          border-radius:50%;
-          display:flex; align-items:center; justify-content:center;
-          border:2px solid white;
-          font-size:13px;
-          font-weight:bold;
-        ">${count}</div>`,
-        className: 'custom-cluster-icon',
-        iconSize: [40, 40]
-      });
-    }
-  });
-  map.addLayer(clusterGroup);
 
   let incidentData = [];
   let currentMarkers = [];
   let drillState = null;
+  let clusterGroup = null;
 
   function clearMarkers() {
-    currentMarkers.forEach(m => clusterGroup.removeLayer(m));
+    if (clusterGroup) {
+      map.removeLayer(clusterGroup);
+      clusterGroup = null;
+    }
+    currentMarkers.forEach(m => map.removeLayer(m));
     currentMarkers = [];
   }
 
@@ -138,59 +117,132 @@
     let dataToShow = [];
 
     if (stateDrill === null) {
+      // Pure state-level view, smaller icon bubbles
       dataToShow = groupByState(incidentData);
       resetBtn.style.display = 'none';
-      map.setView([28.4328, 45.9702], 10);
+      map.setView([28.4328, 45.9702], 13);
+
+      dataToShow.forEach(d => {
+        let color = '#248765';
+        let markerCount = d.count;
+        if (markerCount > 50 && markerCount <= 200) color = '#FFCC01';
+        else if (markerCount > 200) color = '#E1012D';
+
+        // Smaller bubble with number inside
+        const marker = L.marker([d.lat, d.long], {
+          icon: L.divIcon({
+            className: 'custom-cluster-icon',
+            iconSize: [32, 32],
+            html: `<div style="
+              background:${color};
+              width:32px; height:32px;
+              border-radius:50%;
+              display:flex; align-items:center; justify-content:center;
+              border:2px solid white;
+              font-size:13px;
+              font-weight:bold;
+              color: #fff;">
+              ${d.count}
+            </div>`
+          })
+        });
+
+        marker.bindTooltip(
+          `<div style="text-align:right; font-size:13px;">
+            <strong>المنطقة:</strong> ${d.state}<br/>
+            <strong>العدد:</strong> ${d.count}
+          </div>`,
+          {
+            direction: 'top',
+            offset: [0, -8],
+            sticky: true,
+            opacity: 0.95
+          }
+        );
+
+        marker.on('click', () => {
+          drillState = d.state;
+          render(drillState);
+        });
+
+        marker.addTo(map);
+        currentMarkers.push(marker);
+      });
     } else {
+      // Drill down to incidents in this state, clustering for performance
       dataToShow = incidentData.filter(d => d.state === stateDrill);
       resetBtn.style.display = 'block';
       if (dataToShow.length) {
-        map.setView([parseFloat(dataToShow[0].lat), parseFloat(dataToShow[0].longitude)], 13);
+        map.setView([parseFloat(dataToShow[0].lat), parseFloat(dataToShow[0].longitude)], 14);
       }
-    }
-
-    dataToShow.forEach(d => {
-      let color = '#248765';
-      let markerCount = d.count || d.counta;
-      if (markerCount > 50 && markerCount <= 200) color = '#FFCC01';
-      else if (markerCount > 200) color = '#E1012D';
-
-      const marker = L.circleMarker([d.lat, d.long || d.longitude], {
-        radius: 6 + Math.min(markerCount / 10, 15),
-        color,
-        fillColor: color,
-        fillOpacity: 0.85,
-        weight: 1,
-        interactive: true
-      });
-
-      const tooltipContent = (stateDrill === null)
-        ? `<div style="text-align:right; font-size:14px;">
-            <strong>المنطقة:</strong> ${d.state}<br/>
-            <strong>العدد:</strong> ${d.count}
-          </div>`
-        : `<div style="text-align:right; font-size:14px;">
-            <strong>المنطقة:</strong> ${d.state}<br/>
-            <strong>العدد:</strong> ${d.counta}
-          </div>`;
-
-      marker.bindTooltip(tooltipContent, {
-        direction: 'top',
-        offset: [0, -8],
-        sticky: true,
-        opacity: 0.95,
-      });
-
-      marker.on('click', () => {
-        if (stateDrill === null) {
-          drillState = d.state;
-          render(drillState);
+      clusterGroup = L.markerClusterGroup({
+        showCoverageOnHover: false,
+        disableClusteringAtZoom: 17,
+        maxClusterRadius: 50,
+        chunkedLoading: true,
+        spiderfyOnMaxZoom: false,
+        iconCreateFunction: (cluster) => {
+          const count = cluster.getChildCount();
+          let color = '#248765';
+          if (count > 50 && count <= 200) color = '#FFCC01';
+          else if (count > 200) color = '#E1012D';
+          return L.divIcon({
+            html: `<div style="
+              background:${color};
+              width:32px; height:32px;
+              border-radius:50%;
+              display:flex; align-items:center; justify-content:center;
+              border:2px solid white;
+              font-size:12px;
+              font-weight:bold;
+              color: #fff;">
+              ${count}
+            </div>`,
+            className: 'custom-cluster-icon',
+            iconSize: [32, 32]
+          });
         }
       });
 
-      clusterGroup.addLayer(marker);
-      currentMarkers.push(marker);
-    });
+      dataToShow.forEach(d => {
+        let color = '#248765';
+        if (d.counta > 50 && d.counta <= 200) color = '#FFCC01';
+        else if (d.counta > 200) color = '#E1012D';
+
+        // Bigger green dots
+        let radius = 4 + Math.min(d.counta / 20, 10);
+        if (color === '#248765') {
+          radius = 12 + Math.min(d.counta / 20, 16); // Increase green size noticeably
+        }
+
+        const marker = L.circleMarker([d.lat, d.longitude], {
+          radius: radius,
+          color,
+          fillColor: color,
+          fillOpacity: 0.85,
+          weight: 1,
+          interactive: true
+        });
+
+        marker.bindTooltip(
+          `<div style="text-align:right; font-size:12px;">
+            <strong>المنطقة:</strong> ${d.state}<br/>
+            <strong>العدد:</strong> ${d.counta}
+          </div>`,
+          {
+            direction: 'top',
+            offset: [0, -8],
+            sticky: true,
+            opacity: 0.95
+          }
+        );
+
+        clusterGroup.addLayer(marker);
+      });
+
+      map.addLayer(clusterGroup);
+      currentMarkers = [];
+    }
   }
 
   resetBtn.addEventListener('click', () => {
@@ -204,7 +256,6 @@
       incidentData = data.incidentData.map(item => ({
         state: item.state,
         lat: parseFloat(item.lat),
-        long: parseFloat(item.longitude),
         longitude: parseFloat(item.longitude),
         counta: Number(item.counta)
       }));
