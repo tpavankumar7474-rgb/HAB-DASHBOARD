@@ -69,8 +69,8 @@
   <script src="https://unpkg.com/leaflet.markercluster/dist/leaflet.markercluster.js"></script>
 
   <script>
-    // Hafar Al Batin (always default view)
-    const map = L.map("map").setView([28.4328, 45.9702], 12);
+    // Center on Hafar Al Batin with zoom 10 (slightly zoomed out)
+    const map = L.map("map").setView([28.4328, 45.9702], 10);
 
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 18,
@@ -102,6 +102,7 @@
     });
     map.addLayer(clusterGroup);
 
+    // Optimize marker rendering by filtering or limiting data outside
     function renderMarkers(data) {
       clusterGroup.clearLayers();
       data.forEach((d) => {
